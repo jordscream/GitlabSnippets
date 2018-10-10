@@ -12,10 +12,13 @@ import com.intellij.openapi.vfs.VirtualFile;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.TrustStrategy;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
@@ -25,6 +28,8 @@ import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.io.InputStream;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -138,7 +143,19 @@ public class SnippetCreate extends AnAction implements Configurable
       String data = getData( fileName, text, fileName );
       StringEntity ent = new StringEntity( data, ContentType.APPLICATION_JSON );
       post.setEntity( ent );
-      try ( CloseableHttpClient client = HttpClients.createDefault() )
+
+      SSLContextBuilder builderssl = new SSLContextBuilder();
+      builderssl.loadTrustMaterial(null, new TrustStrategy() {
+         @Override
+         public boolean isTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            return true;
+         }
+      });
+      SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builderssl.build(),
+              SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+
+
+      try ( CloseableHttpClient client = HttpClients.custom().setSSLSocketFactory(sslsf).build() )
       {
          resp = client.execute( post );
          byte[] buff = new byte[1024];
