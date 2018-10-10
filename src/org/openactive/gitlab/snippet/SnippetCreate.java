@@ -1,21 +1,28 @@
 package org.openactive.gitlab.snippet;
 
+import com.intellij.ide.projectView.ProjectView;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.notification.*;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.impl.LoadTextUtil;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.util.IconLoader;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiElement;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.TrustStrategy;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
@@ -25,6 +32,8 @@ import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.io.InputStream;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -128,16 +137,17 @@ public class SnippetCreate extends AnAction implements Configurable
       props.setValue( "org.openactive.gitlab.snippets.token", tokenField.getText().trim() );
    }
 
-   private String post( String text, String fileName ) throws Exception
+   private String post( String text, String fileName, VirtualFile[] files) throws Exception
    {
       CloseableHttpResponse resp = null;
 
       HttpPost post = new HttpPost( getUseableUrl() );
       post.addHeader( "PRIVATE-TOKEN", getToken() );
 
-      String data = getData( fileName, text, fileName );
+      String data = getData( fileName, text, fileName, files );
       StringEntity ent = new StringEntity( data, ContentType.APPLICATION_JSON );
       post.setEntity( ent );
+
       try ( CloseableHttpClient client = HttpClients.createDefault() )
       {
          resp = client.execute( post );
@@ -163,13 +173,25 @@ public class SnippetCreate extends AnAction implements Configurable
       }
    }
 
-   private String getData( String title, String content, String fileName )
+   private String getData( String title, String content, String fileName, VirtualFile[] files )
    {
       Map<String, String> data = new HashMap<>();
       data.put( "title", title );
       data.put( "content", content );
       data.put( "file_name", fileName );
       data.put( "visibility", "internal" );
+
+      if (files.length > 0 && content == null) {
+         data.put( "title", "Code Snippet Multiple Files" );
+         data.put( "content", "" );
+         data.put( "file_name", "Code Snippet Multiple Files" );
+         data.put( "visibility", "internal" );
+         for (VirtualFile file : files) {
+            data.put( "content",
+                    data.get("content") + "\n\n--------"+  file.getName() +"------------\n\n" +LoadTextUtil.loadText(file));
+         }
+      }
+
       return new JSONObject( data ).toString();
    }
 
@@ -178,10 +200,17 @@ public class SnippetCreate extends AnAction implements Configurable
    {
       // only show this action if some text is selected
       Editor editor = FileEditorManager.getInstance( e.getProject() ).getSelectedTextEditor();
+      VirtualFile[] files = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY);
       String s = editor.getCaretModel().getCurrentCaret().getSelectedText();
+
       if ( s == null || s.length() == 0 || !isConfigured() )
       {
-         e.getPresentation().setVisible( false );
+            e.getPresentation().setVisible( false );
+      }
+
+      if (files != null && files.length > 0)
+      {
+         e.getPresentation().setVisible( true );
       }
    }
 
@@ -193,8 +222,9 @@ public class SnippetCreate extends AnAction implements Configurable
          Editor editor = FileEditorManager.getInstance( e.getProject() ).getSelectedTextEditor();
          VirtualFile vf = e.getData( PlatformDataKeys.VIRTUAL_FILE );
          String s = editor.getCaretModel().getCurrentCaret().getSelectedText();
-         String url = post( s, vf != null ? vf.getName() : "unknown" );
+         VirtualFile[] files = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY);
 
+         String url = post( s, vf != null ? vf.getName() : "unknown", files);
 
          Notification note = new Notification(
            "Gitlab Snippet",
