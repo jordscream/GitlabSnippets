@@ -25,6 +25,7 @@
         <action id="Snippet.Create" class="org.openactive.gitlab.snippet.SnippetCreate"
                 text="Gitlab Snippet" description="Create a Snippet">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
     </actions>
 

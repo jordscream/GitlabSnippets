@@ -1,6 +1,8 @@
 # Gitlab Snippets
 
 A plugin for Jetbrains IDEs for creating Gitlab snippets within the IDE.
+- Support Editor Selection Code Snippet
+- Support Multiple Files Selection Snippet
 
 ### To Install:
 
