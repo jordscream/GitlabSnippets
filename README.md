@@ -6,8 +6,8 @@ A plugin for Jetbrains IDEs for creating Gitlab snippets within the IDE.
 
 ### To Install:
 
-Build or download the Snippet.zip file. Then file -> settings -> Plugins, choose "install plugin from disk".
-Select Snippet.zip. Restart your IDE.
+Build or download the GitlabSnippets.zip file. Then file -> settings -> Plugins, choose "install plugin from disk".
+Select GitlabSnippets.zip. Restart your IDE.
 
 
 ### To Configure:
